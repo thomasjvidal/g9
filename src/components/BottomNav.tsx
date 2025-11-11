@@ -1,4 +1,4 @@
-import { Home, TrendingUp, Dumbbell, CheckSquare, Target, Users } from "lucide-react";
+import { Home, TrendingUp, Dumbbell, Target, Users } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,8 +24,6 @@ const BottomNav = () => {
     { to: "/", icon: Home, label: "Home" },
     { to: "/evolucao", icon: TrendingUp, label: "Evolução" },
     { to: "/treinos", icon: Dumbbell, label: "Treinos" },
-    { to: "/checkin", icon: CheckSquare, label: "Check-in" },
-    { to: "/desafios", icon: Target, label: "Desafios" },
   ];
 
   if (profile?.coach) {

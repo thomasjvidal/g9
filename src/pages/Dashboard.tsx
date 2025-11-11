@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import PageLayout from "@/components/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, TrendingUp, Moon, Zap, Weight } from "lucide-react";
+import { CheckCircle2, TrendingUp, Moon, Zap, Weight, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -68,6 +70,58 @@ const Dashboard = () => {
     },
   });
 
+  const { data: todayCheckin } = useQuery({
+    queryKey: ['todayCheckin'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('checkins_diarios')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('data', today)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  // Auto-navegar para o Check-in uma vez por dia até ser preenchido
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const promptedDate = localStorage.getItem('checkin_prompted_date');
+    if (!todayCheckin && promptedDate !== today) {
+      localStorage.setItem('checkin_prompted_date', today);
+      navigate('/checkin');
+    }
+  }, [todayCheckin, navigate]);
+
+  // Realtime: reflete imediatamente alterações vindas de outras abas
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      channel = supabase
+        .channel('realtime-dashboard')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'treinos_realizados' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['weeklyStats'] });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'progresso_usuario' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['weeklyStats'] });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins_diarios' }, () => {
+          queryClient.invalidateQueries({ queryKey: ['todayCheckin'] });
+          queryClient.invalidateQueries({ queryKey: ['weeklyStats'] });
+        })
+        .subscribe();
+    })();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const { data: activeChallenge } = useQuery({
     queryKey: ['activeChallenge'],
     queryFn: async () => {
@@ -107,8 +161,18 @@ const Dashboard = () => {
         </div>
 
         <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Constância Semanal</CardTitle>
+            {todayCheckin && (
+              <button
+                type="button"
+                aria-label="Editar check-in de hoje"
+                onClick={() => navigate('/checkin')}
+                className="inline-flex items-center justify-center p-2 rounded-md text-primary hover:bg-primary/10"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -193,11 +257,12 @@ const Dashboard = () => {
         )}
 
         <Button 
-          className="w-full h-14 text-lg font-semibold"
-          onClick={() => navigate('/checkin')}
+          className={`${todayCheckin ? 'bg-green-600 text-white hover:bg-green-600 cursor-not-allowed' : ''} w-full h-14 text-lg font-semibold`}
+          onClick={() => !todayCheckin && navigate('/checkin')}
+          disabled={Boolean(todayCheckin)}
         >
           <CheckCircle2 className="mr-2 h-5 w-5" />
-          Fazer Check-in Diário
+          {todayCheckin ? 'Check-in de hoje concluído' : 'Fazer Check-in Diário'}
         </Button>
       </div>
     </PageLayout>

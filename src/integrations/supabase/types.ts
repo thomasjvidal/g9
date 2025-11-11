@@ -198,6 +198,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          username: string | null
         }
         Insert: {
           coach?: boolean | null
@@ -205,6 +206,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          username?: string | null
         }
         Update: {
           coach?: boolean | null
@@ -212,6 +214,7 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+          username?: string | null
         }
         Relationships: []
       }

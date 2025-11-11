@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import PageLayout from "@/components/PageLayout";
@@ -16,6 +18,35 @@ const CheckIn = () => {
   const [humor, setHumor] = useState("😐");
   const [peso, setPeso] = useState("");
   const [treinoFeito, setTreinoFeito] = useState(false);
+  const navigate = useNavigate();
+  
+  const { data: prefill } = useQuery({
+    queryKey: ['todayCheckinPrefill'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('checkins_diarios')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .eq('data', today)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 1000 * 30,
+  });
+
+  useEffect(() => {
+    if (!prefill) return;
+    setSono(prefill.sono !== null && prefill.sono !== undefined ? String(prefill.sono) : "");
+    setPeso(prefill.peso !== null && prefill.peso !== undefined ? String(prefill.peso) : "");
+    if (prefill.energia) setEnergia(prefill.energia);
+    if (prefill.humor) setHumor(prefill.humor);
+    if (prefill.treino_feito !== null && prefill.treino_feito !== undefined) {
+      setTreinoFeito(Boolean(prefill.treino_feito));
+    }
+  }, [prefill]);
   
   const queryClient = useQueryClient();
 
@@ -56,10 +87,13 @@ const CheckIn = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weeklyStats'] });
       queryClient.invalidateQueries({ queryKey: ['activeChallenge'] });
+      queryClient.invalidateQueries({ queryKey: ['evolution'] });
+      queryClient.invalidateQueries({ queryKey: ['monthlyStats'] });
       toast.success("Check-in salvo! Continue firme! 💪");
       setSono("");
       setPeso("");
       setTreinoFeito(false);
+      navigate("/");
     },
     onError: (error: any) => {
       toast.error(error.message || "Erro ao salvar check-in");
