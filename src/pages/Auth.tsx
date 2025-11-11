@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,35 @@ const Auth = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Se o Supabase não estiver configurado, mostramos instruções e não exibimos o formulário.
+  if (!supabaseConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Supabase não configurado</CardTitle>
+            <CardDescription>
+              Defina as variáveis <code>VITE_SUPABASE_URL</code> e <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> no arquivo <code>.env</code> para habilitar o login.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              Exemplo de conteúdo:
+              <pre className="mt-2 rounded bg-muted p-3 text-xs overflow-auto">
+{`VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=SEU-ANON-KEY`}
+              </pre>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              - Local: crie/edite <code>.env</code> na raiz do projeto.<br />
+              - Vercel: Settings → Environment Variables → adicione as mesmas chaves.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
