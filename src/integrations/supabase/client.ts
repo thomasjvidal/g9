@@ -2,16 +2,61 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+const missingEnv = !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY;
+export const supabaseConfigured = !missingEnv;
+
+if (missingEnv) {
+  console.warn('[Supabase] Variáveis de ambiente ausentes: configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.');
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+export const supabase = missingEnv
+  ? {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+        onAuthStateChange(_cb?: any) {
+          const subscription = { unsubscribe() { /* noop */ } };
+          return { data: { subscription }, error: null } as any;
+        },
+        async signInWithPassword(_creds?: any) {
+          return { data: { user: null, session: null }, error: { message: 'Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.' } } as any;
+        },
+        async signUp(_params?: any) {
+          return { data: { user: null, session: null }, error: { message: 'Cadastro indisponível sem configuração do Supabase.' } } as any;
+        },
+        async updateUser(_attrs?: any) {
+          return { data: { user: null }, error: { message: 'Atualização de usuário indisponível sem Supabase.' } } as any;
+        },
+        async resetPasswordForEmail(_email?: string, _opts?: any) {
+          return { data: null, error: { message: 'Recuperação de senha indisponível sem Supabase.' } } as any;
+        },
+        async getUser() { return { data: { user: null }, error: null } as any; },
+        async getSession() { return { data: { session: null }, error: null } as any; },
+        async signOut() { return { error: null } as any; },
+      },
+      from() {
+        const noop = async () => ({ data: [], error: null } as any);
+        return {
+          select: noop,
+          insert: noop,
+          update: noop,
+          delete: noop,
+          eq: noop,
+          order: noop,
+        } as any;
+      },
+    } as unknown as ReturnType<typeof createClient<Database>>
+  : createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
